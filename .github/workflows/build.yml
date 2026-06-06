@@ -17,34 +17,35 @@ jobs:
           
       - name: Build and Package
         run: |
-          # 1. Setup environment
+          # 1. Prepare environment
           sudo gem install cocoapods
           npm install
-          
-          # 2. Sync ensures the iOS project exists
           npx cap sync ios
           
-          # 3. Find the workspace DYNAMICALLY
-          # This line finds the file regardless of its folder location
-          WORKSPACE=$(find . -name "App.xcworkspace" -print -quit)
+          # 2. Find the Podfile and install pods
+          # This works no matter where the folder is
+          PODFILE_DIR=$(dirname "$(find . -name "Podfile" -print -quit)")
+          echo "Installing pods in: $PODFILE_DIR"
+          cd "$PODFILE_DIR" && pod install
           
-          if [ -z "$WORKSPACE" ]; then
+          # 3. Find the workspace path from the root
+          cd ${{ github.workspace }}
+          WORKSPACE_PATH=$(find . -name "App.xcworkspace" -print -quit)
+          
+          if [ -z "$WORKSPACE_PATH" ]; then
              echo "ERROR: Could not find App.xcworkspace."
-             echo "Listing current directory to debug path:"
-             find . -maxdepth 3
+             find . -maxdepth 4
              exit 1
           fi
           
-          # 4. Get the directory and build inside it
-          PROJECT_DIR=$(dirname "$WORKSPACE")
-          echo "Building in: $PROJECT_DIR"
+          echo "Building workspace at: $WORKSPACE_PATH"
           
-          cd "$PROJECT_DIR"
-          pod install
-          xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
+          # 4. Build using the full path
+          xcodebuild -workspace "$WORKSPACE_PATH" -scheme App -configuration Release -sdk iphoneos build
           
-          # 5. Package using the same dynamic logic
+          # 5. Package the IPA
           mkdir -p Payload
+          # Search for the .app file
           APP_PATH=$(find . -name "*.app" -type d | head -n 1)
           cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
@@ -53,4 +54,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
-          path: "**/AreaTool.ipa"
+          path: /**/AreaTool.ipa
