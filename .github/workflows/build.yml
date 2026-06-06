@@ -35,18 +35,14 @@ jobs:
 
       - name: Package into IPA
         run: |
-          # 1. Debug: List all directories to see where the build output is
-          echo "Current directory:"
-          pwd
-          echo "Scanning for .app files:"
-          find . -name "*.app" -type d
+          echo "Listing contents of the build folder:"
+          ls -R ios/App/build
           
-          # 2. Try to find the app again with a wider search
-          APP_PATH=$(find . -name "*.app" -type d | head -n 1)
+          echo "Attempting to find the .app file..."
+          APP_PATH=$(find ios/App/build -name "*.app" -type d | head -n 1)
           
-          # 3. Check if we actually found something
           if [ -z "$APP_PATH" ]; then
-            echo "Error: Could not find any .app file!"
+            echo "Error: Still could not find any .app file inside ios/App/build!"
             exit 1
           fi
           
