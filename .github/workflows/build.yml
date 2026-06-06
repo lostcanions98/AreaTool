@@ -18,25 +18,36 @@ jobs:
       - name: Install and Sync
         run: |
           npm install
-          npx cap add ios || true
+          npx cap add ios
           npx cap sync ios
           
-      - name: Build and Package
+      - name: Locate and Build
         run: |
-          cd ios/App
-          # Explicit build command
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build
+          echo "--- DEBUG: Checking for App.xcworkspace ---"
+          find . -name "*.xcworkspace"
           
-          # Explicit packaging (using the path from your screenshot)
-          mkdir -p Payload
-          if [ -d "build/Release-iphoneos/App.app" ]; then
-            cp -r build/Release-iphoneos/App.app Payload/
-          else
-            echo "ERROR: Could not find App.app at build/Release-iphoneos/App.app"
-            ls -R build
+          # Find the directory containing the workspace
+          WORKSPACE_PATH=$(find . -name "App.xcworkspace" -maxdepth 3 | head -n 1)
+          
+          if [ -z "$WORKSPACE_PATH" ]; then
+            echo "ERROR: Could not find App.xcworkspace anywhere!"
+            echo "Listing all files in the ios directory:"
+            ls -R ios/
             exit 1
           fi
           
+          # Navigate to the parent folder of the workspace and build
+          PROJECT_DIR=$(dirname "$WORKSPACE_PATH")
+          echo "Found project at: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
+          
+          # Package the IPA
+          mkdir -p Payload
+          # Search for the .app file
+          APP_FILE=$(find . -name "*.app" | head -n 1)
+          cp -r "$APP_FILE" Payload/
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
