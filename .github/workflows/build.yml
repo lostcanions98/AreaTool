@@ -15,29 +15,32 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Build App
+      - name: Install Dependencies
         run: |
-          # 1. Install dependencies
+          # 1. Install CocoaPods (This fixes the 'pod: command not found' error)
+          sudo gem install cocoapods
+          
+          # 2. Install Project Dependencies
           npm install
           
-          # 2. Sync to ensure iOS project is updated
+      - name: Prepare iOS Project
+        run: |
+          # 3. Clean and Sync
+          rm -rf ios
+          npx cap add ios
           npx cap sync ios
           
-          # 3. Find the directory containing the Podfile/Workspace dynamically
-          # This removes the need for 'cd ios/App'
+      - name: Build App
+        run: |
+          # 4. Find the workspace and build
           WORKSPACE=$(find . -name "App.xcworkspace" -print -quit)
           PROJECT_DIR=$(dirname "$WORKSPACE")
-          
-          echo "Found project directory: $PROJECT_DIR"
           cd "$PROJECT_DIR"
           
-          # 4. Install Pods and Build
-          pod install
           xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
-          # 5. Package the IPA dynamically
+          # 5. Package
           mkdir -p Payload
-          # Locate the .app file inside the build folder
           APP_PATH=$(find . -name "*.app" -type d | head -n 1)
           cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
