@@ -15,34 +15,39 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install Dependencies
+      - name: Install and Setup
         run: |
-          # 1. Install CocoaPods (This fixes the 'pod: command not found' error)
+          # 1. Prepare Environment
           sudo gem install cocoapods
-          
-          # 2. Install Project Dependencies
           npm install
           
-      - name: Prepare iOS Project
-        run: |
-          # 3. Clean and Sync
+          # 2. Force fresh iOS platform
           rm -rf ios
           npx cap add ios
           npx cap sync ios
           
-      - name: Build App
+          # 3. CRITICAL: Debugging step
+          echo "--- START OF FILE LISTING ---"
+          ls -R ios
+          echo "--- END OF FILE LISTING ---"
+          
+          # 4. Check for workspace
+          if [ ! -f "ios/App/App.xcworkspace" ] && [ ! -f "ios/App.xcworkspace" ]; then
+             echo "Workspace NOT found. The setup step failed to generate it."
+             exit 1
+          fi
+
+      - name: Build and Package
         run: |
-          # 4. Find the workspace and build
-          WORKSPACE=$(find . -name "App.xcworkspace" -print -quit)
+          # Only runs if workspace was found
+          WORKSPACE=$(find . -name "App.xcworkspace" | head -n 1)
           PROJECT_DIR=$(dirname "$WORKSPACE")
           cd "$PROJECT_DIR"
           
           xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
-          # 5. Package
           mkdir -p Payload
-          APP_PATH=$(find . -name "*.app" -type d | head -n 1)
-          cp -r "$APP_PATH" Payload/
+          cp -r build/Release-iphoneos/App.app Payload/
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
