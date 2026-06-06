@@ -15,47 +15,41 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Debug and Initialize
+      - name: Build Everything
         run: |
-          # 1. Install necessary build tools
+          # 1. Install necessary dependencies
           sudo gem install cocoapods
           npm install
           
-          # 2. Force create platform
-          rm -rf ios
-          npx cap add ios
+          # 2. Sync (this generates the iOS platform)
           npx cap sync ios
           
-          # 3. AUDIT: This is the critical step.
-          # If this file is missing, the script will dump the structure of your ENTIRE repo.
-          if [ ! -d "ios/App" ]; then
-             echo "CRITICAL: 'ios/App' directory was not created."
-             echo "Listing all files in current directory to locate project:"
-             find . -maxdepth 3 -not -path '*/.*'
+          # 3. Find the workspace dynamically
+          WORKSPACE=$(find . -name "App.xcworkspace" -print -quit)
+          if [ -z "$WORKSPACE" ]; then
+             echo "CRITICAL: Could not find App.xcworkspace."
+             echo "Listing all files in the repository to locate it:"
+             find . -maxdepth 3
              exit 1
           fi
-
-      - name: Install Pods and Build
-        run: |
-          cd ios/App
+          
+          # 4. Navigate to the actual folder found
+          PROJECT_DIR=$(dirname "$WORKSPACE")
+          echo "Found project at: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          # 5. Build
           pod install
-          
-          # Check for the workspace one last time
-          if [ ! -f "App.xcworkspace" ]; then
-            echo "CRITICAL: App.xcworkspace not found in ios/App"
-            exit 1
-          fi
-          
-          # Build
           xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
-          # Package
+          # 6. Package
           mkdir -p Payload
-          cp -r build/Release-iphoneos/App.app Payload/
+          APP_PATH=$(find . -name "*.app" -type d | head -n 1)
+          cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
-          path: ios/App/AreaTool.ipa
+          path: /**/AreaTool.ipa
