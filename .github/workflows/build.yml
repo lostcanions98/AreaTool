@@ -17,33 +17,34 @@ jobs:
           
       - name: Build and Package
         run: |
-          # 1. Prepare environment
+          # 1. Setup environment
           sudo gem install cocoapods
           npm install
+          
+          # 2. Sync ensures the iOS project is generated
           npx cap sync ios
           
-          # 2. Find the Podfile and install pods
-          # This works no matter where the folder is
-          PODFILE_DIR=$(dirname "$(find . -name "Podfile" -print -quit)")
-          echo "Installing pods in: $PODFILE_DIR"
-          cd "$PODFILE_DIR" && pod install
+          # 3. LOCATE WORKSPACE DYNAMICALLY
+          # This line finds the EXACT path of the workspace
+          WORKSPACE=$(find . -name "App.xcworkspace" -type d -print -quit)
           
-          # 3. Find the workspace path from the root
-          cd ${{ github.workspace }}
-          WORKSPACE_PATH=$(find . -name "App.xcworkspace" -print -quit)
-          
-          if [ -z "$WORKSPACE_PATH" ]; then
-             echo "ERROR: Could not find App.xcworkspace."
-             find . -maxdepth 4
+          # If it doesn't find it, the script fails and shows you the file map
+          if [ -z "$WORKSPACE" ]; then
+             echo "CRITICAL ERROR: App.xcworkspace not found!"
+             echo "--- DUMPING DIRECTORY STRUCTURE ---"
+             find . -maxdepth 3 -not -path '*/.*'
              exit 1
           fi
           
-          echo "Building workspace at: $WORKSPACE_PATH"
+          # 4. Navigate and Build
+          PROJECT_DIR=$(dirname "$WORKSPACE")
+          echo "Found project directory: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
           
-          # 4. Build using the full path
-          xcodebuild -workspace "$WORKSPACE_PATH" -scheme App -configuration Release -sdk iphoneos build
+          pod install
+          xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
-          # 5. Package the IPA
+          # 5. Package
           mkdir -p Payload
           # Search for the .app file
           APP_PATH=$(find . -name "*.app" -type d | head -n 1)
@@ -54,4 +55,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
-          path: /**/AreaTool.ipa
+          path: "**/AreaTool.ipa"
