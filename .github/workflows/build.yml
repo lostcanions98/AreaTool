@@ -15,34 +15,35 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Build Everything
+      - name: Build and Package
         run: |
-          # 1. Install necessary dependencies
+          # 1. Setup environment
           sudo gem install cocoapods
           npm install
           
-          # 2. Sync (this generates the iOS platform)
+          # 2. Sync ensures the iOS project exists
           npx cap sync ios
           
-          # 3. Find the workspace dynamically
+          # 3. Find the workspace DYNAMICALLY
+          # This line finds the file regardless of its folder location
           WORKSPACE=$(find . -name "App.xcworkspace" -print -quit)
+          
           if [ -z "$WORKSPACE" ]; then
-             echo "CRITICAL: Could not find App.xcworkspace."
-             echo "Listing all files in the repository to locate it:"
+             echo "ERROR: Could not find App.xcworkspace."
+             echo "Listing current directory to debug path:"
              find . -maxdepth 3
              exit 1
           fi
           
-          # 4. Navigate to the actual folder found
+          # 4. Get the directory and build inside it
           PROJECT_DIR=$(dirname "$WORKSPACE")
-          echo "Found project at: $PROJECT_DIR"
-          cd "$PROJECT_DIR"
+          echo "Building in: $PROJECT_DIR"
           
-          # 5. Build
+          cd "$PROJECT_DIR"
           pod install
           xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
-          # 6. Package
+          # 5. Package using the same dynamic logic
           mkdir -p Payload
           APP_PATH=$(find . -name "*.app" -type d | head -n 1)
           cp -r "$APP_PATH" Payload/
@@ -52,4 +53,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
-          path: /**/AreaTool.ipa
+          path: "**/AreaTool.ipa"
