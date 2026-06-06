@@ -37,7 +37,10 @@ jobs:
         run: |
           cd ios/App
           mkdir -p Payload
-          mv build/Release-iphoneos/App.app Payload/
+          # Find the app file wherever it was built and copy it to Payload
+          APP_PATH=$(find . -name "*.app" | head -n 1)
+          echo "Found app at: $APP_PATH"
+          cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
