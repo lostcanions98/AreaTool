@@ -15,39 +15,38 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install and Sync
+      - name: Install Dependencies
         run: |
           npm install
           npx cap add ios
+          cd ios/App
+          # This is the missing step that creates the .xcworkspace file
+          pod install
+          cd ../..
           npx cap sync ios
           
-      - name: Locate and Build
+      - name: Build and Package
         run: |
-          echo "--- DEBUG: Checking for App.xcworkspace ---"
+          echo "--- DEBUG: Workspace Check ---"
           find . -name "*.xcworkspace"
           
-          # Find the directory containing the workspace
-          WORKSPACE_PATH=$(find . -name "App.xcworkspace" -maxdepth 3 | head -n 1)
-          
-          if [ -z "$WORKSPACE_PATH" ]; then
-            echo "ERROR: Could not find App.xcworkspace anywhere!"
-            echo "Listing all files in the ios directory:"
-            ls -R ios/
-            exit 1
-          fi
-          
-          # Navigate to the parent folder of the workspace and build
+          # Find the workspace
+          WORKSPACE_PATH=$(find . -name "App.xcworkspace" | head -n 1)
           PROJECT_DIR=$(dirname "$WORKSPACE_PATH")
-          echo "Found project at: $PROJECT_DIR"
+          
+          echo "Building in: $PROJECT_DIR"
           cd "$PROJECT_DIR"
           
+          # Build
           xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
-          # Package the IPA
+          # Package
           mkdir -p Payload
-          # Search for the .app file
-          APP_FILE=$(find . -name "*.app" | head -n 1)
-          cp -r "$APP_FILE" Payload/
+          # Move to the build folder and look for the .app
+          cd build/Release-iphoneos
+          cp -r *.app ../../../Payload/
+          cd ../../../
+          
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
