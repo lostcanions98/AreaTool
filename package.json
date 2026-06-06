@@ -1,4 +1,16 @@
-{\rtf1\ansi\ansicpg1252\cocoartf2639
+{
+  "name": "area-tool",
+  "version": "1.0.0",
+  "description": "Area Tool",
+  "main": "index.js",
+  "dependencies": {
+    "@capacitor/core": "^5.0.0",
+    "@capacitor/ios": "^5.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^5.0.0"
+  }
+}{\rtf1\ansi\ansicpg1252\cocoartf2639
 \cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
 {\colortbl;\red255\green255\blue255;}
 {\*\expandedcolortbl;;}
