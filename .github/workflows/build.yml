@@ -8,47 +8,35 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Install Dependencies
+          
+      - name: Install and Sync
         run: |
           npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/ios
-
-      - name: Initialize and Sync iOS Platform
-        run: |
-          npx cap add ios
+          npx cap add ios || true
           npx cap sync ios
-
-      - name: Build Unsigned iOS App
+          
+      - name: Build and Package
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
-
-      - name: Package into IPA
-        run: |
-          echo "Listing contents of the build folder:"
-          ls -R ios/App/build
+          # Explicit build command
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphoneos build
           
-          echo "Attempting to find the .app file..."
-          APP_PATH=$(find ios/App/build -name "*.app" -type d | head -n 1)
-          
-          if [ -z "$APP_PATH" ]; then
-            echo "Error: Still could not find any .app file inside ios/App/build!"
+          # Explicit packaging (using the path from your screenshot)
+          mkdir -p Payload
+          if [ -d "build/Release-iphoneos/App.app" ]; then
+            cp -r build/Release-iphoneos/App.app Payload/
+          else
+            echo "ERROR: Could not find App.app at build/Release-iphoneos/App.app"
+            ls -R build
             exit 1
           fi
           
-          echo "Found app at: $APP_PATH"
-          mkdir -p Payload
-          cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
