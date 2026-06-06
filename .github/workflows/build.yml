@@ -15,46 +15,45 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Full Reset and Build
+      - name: Build and Package
         run: |
-          # 1. Clean Environment
-          rm -rf ios
+          # 1. Setup environment
+          sudo gem install cocoapods
           npm install
           
-          # 2. Re-create iOS platform
+          # 2. Force fresh platform creation
+          rm -rf ios
           npx cap add ios
           npx cap sync ios
           
-          # 3. Explicitly enter the directory and run pod install
-          # We check the directory exists first
-          if [ -d "ios/App" ]; then
-            cd ios/App
-            pod install
-            # Verify the workspace was created
-            if [ ! -f "App.xcworkspace" ]; then
-                echo "ERROR: pod install finished, but App.xcworkspace is missing."
-                ls -la
-                exit 1
-            fi
-          else
-            echo "ERROR: 'ios/App' directory was not created by cap sync."
-            ls -R ios
-            exit 1
+          # 3. DYNAMIC LOCATOR: Find where the workspace was actually created
+          WORKSPACE_PATH=$(find . -name "App.xcworkspace" -print -quit)
+          
+          if [ -z "$WORKSPACE_PATH" ]; then
+             echo "CRITICAL ERROR: Could not find App.xcworkspace."
+             echo "--- DUMPING DIRECTORY STRUCTURE TO DEBUG ---"
+             find . -maxdepth 3 -not -path '*/.*'
+             exit 1
           fi
           
-          # 4. Build
-          cd ../..
-          xcodebuild -workspace "ios/App/App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
+          # 4. Extract project directory and build
+          PROJECT_DIR=$(dirname "$WORKSPACE_PATH")
+          echo "Found workspace at: $WORKSPACE_PATH"
+          echo "Building in: $PROJECT_DIR"
+          
+          cd "$PROJECT_DIR"
+          pod install
+          xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
           # 5. Package
           mkdir -p Payload
-          # Locate the .app file specifically
-          APP_FILE=$(find ios/App/build -name "*.app" | head -n 1)
-          cp -r "$APP_FILE" Payload/
+          # Search for the .app file dynamically
+          APP_PATH=$(find . -name "*.app" -type d | head -n 1)
+          cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
-          path: AreaTool.ipa
+          path: "**/AreaTool.ipa"
