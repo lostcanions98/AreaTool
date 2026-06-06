@@ -15,37 +15,41 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install and Setup
+      - name: Debug and Initialize
         run: |
-          # 1. Prepare Environment
+          # 1. Install necessary build tools
           sudo gem install cocoapods
           npm install
           
-          # 2. Force fresh iOS platform
+          # 2. Force create platform
           rm -rf ios
           npx cap add ios
           npx cap sync ios
           
-          # 3. CRITICAL: Debugging step
-          echo "--- START OF FILE LISTING ---"
-          ls -R ios
-          echo "--- END OF FILE LISTING ---"
-          
-          # 4. Check for workspace
-          if [ ! -f "ios/App/App.xcworkspace" ] && [ ! -f "ios/App.xcworkspace" ]; then
-             echo "Workspace NOT found. The setup step failed to generate it."
+          # 3. AUDIT: This is the critical step.
+          # If this file is missing, the script will dump the structure of your ENTIRE repo.
+          if [ ! -d "ios/App" ]; then
+             echo "CRITICAL: 'ios/App' directory was not created."
+             echo "Listing all files in current directory to locate project:"
+             find . -maxdepth 3 -not -path '*/.*'
              exit 1
           fi
 
-      - name: Build and Package
+      - name: Install Pods and Build
         run: |
-          # Only runs if workspace was found
-          WORKSPACE=$(find . -name "App.xcworkspace" | head -n 1)
-          PROJECT_DIR=$(dirname "$WORKSPACE")
-          cd "$PROJECT_DIR"
+          cd ios/App
+          pod install
           
+          # Check for the workspace one last time
+          if [ ! -f "App.xcworkspace" ]; then
+            echo "CRITICAL: App.xcworkspace not found in ios/App"
+            exit 1
+          fi
+          
+          # Build
           xcodebuild -workspace "App.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
           
+          # Package
           mkdir -p Payload
           cp -r build/Release-iphoneos/App.app Payload/
           zip -q -r AreaTool.ipa Payload
@@ -54,4 +58,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
-          path: /**/AreaTool.ipa
+          path: ios/App/AreaTool.ipa
