@@ -17,42 +17,38 @@ jobs:
         with:
           node-version: '20'
           
-      - name: Install Dependencies & Sync
+      - name: Install Dependencies
         run: |
           npm install
           npx cap sync ios
           
-      - name: Install Pods & Build App
+      - name: Build and Archive App
         run: |
-          # 1. Enter the exact directory Capacitor expects
           cd ios/App
+          # Force a repo update to ensure Pods are perfectly linked
+          pod install --repo-update
           
-          # 2. Install pods here so relative paths to node_modules work properly
-          pod install
-          
-          # 3. Build the project and force the output into a specific 'build_output' folder
-          xcodebuild -workspace App.xcworkspace \
+          # Use 'archive' instead of 'build'. This respects all CocoaPods header paths.
+          xcodebuild archive \
+                     -workspace App.xcworkspace \
                      -scheme App \
                      -configuration Release \
                      -sdk iphoneos \
-                     -derivedDataPath ./build_output \
+                     -archivePath ./build/AreaTool.xcarchive \
                      CODE_SIGNING_ALLOWED=NO \
-                     build
+                     CODE_SIGNING_REQUIRED=NO
                      
       - name: Package IPA
         run: |
+          # Navigate to where we built the archive
+          cd ios/App
           mkdir -p Payload
           
-          # We now know exactly where the .app file is, no guessing required
-          APP_PATH=$(find ios/App/build_output -name "*.app" -type d | head -n 1)
+          # The .app file is safely stored inside the archive's specific Applications folder
+          cp -r build/AreaTool.xcarchive/Products/Applications/*.app Payload/
           
-          if [ -z "$APP_PATH" ]; then
-            echo "CRITICAL ERROR: Build succeeded, but .app file was not found."
-            exit 1
-          fi
-          
-          cp -r "$APP_PATH" Payload/
-          zip -q -r AreaTool.ipa Payload
+          # Zip it up and place it in the root repository folder
+          zip -q -r ../../AreaTool.ipa Payload
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
