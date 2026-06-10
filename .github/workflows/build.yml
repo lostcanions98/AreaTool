@@ -22,26 +22,35 @@ jobs:
           npm install
           npx cap sync ios
           
-      - name: Install CocoaPods
+      - name: Install Pods & Build App
         run: |
-          # Bypassing 'cd' by telling CocoaPods exactly where the project is
-          pod install --project-directory=ios/App
+          # 1. Enter the exact directory Capacitor expects
+          cd ios/App
           
-      - name: Build Xcode Project
-        run: |
-          # Bypassing variables by hardcoding the direct absolute path
-          xcodebuild -workspace ios/App/App.xcworkspace \
+          # 2. Install pods here so relative paths to node_modules work properly
+          pod install
+          
+          # 3. Build the project and force the output into a specific 'build_output' folder
+          xcodebuild -workspace App.xcworkspace \
                      -scheme App \
                      -configuration Release \
                      -sdk iphoneos \
+                     -derivedDataPath ./build_output \
                      CODE_SIGNING_ALLOWED=NO \
                      build
-          
+                     
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Finding the compiled .app safely and packaging it
-          APP_PATH=$(find ios/App -name "*.app" -type d | head -n 1)
+          
+          # We now know exactly where the .app file is, no guessing required
+          APP_PATH=$(find ios/App/build_output -name "*.app" -type d | head -n 1)
+          
+          if [ -z "$APP_PATH" ]; then
+            echo "CRITICAL ERROR: Build succeeded, but .app file was not found."
+            exit 1
+          fi
+          
           cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
