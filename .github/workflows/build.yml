@@ -9,31 +9,28 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
       
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           
-      - name: Setup and Sync
+      - name: Install Dependencies & Sync
         run: |
-          sudo gem install cocoapods
           npm install
-          rm -rf ios
-          npx cap add ios
           npx cap sync ios
           
-      - name: Build App
+      - name: Install CocoaPods
         run: |
-          cd ios/App
-          pod install
+          # Bypassing 'cd' by telling CocoaPods exactly where the project is
+          pod install --project-directory=ios/App
           
-          # Dynamically find the workspace file
-          WORKSPACE=$(ls | grep .xcworkspace | head -n 1)
-          echo "Found workspace: $WORKSPACE"
-          
-          # Build with signing disabled to ensure compilation finishes
-          xcodebuild -workspace "$WORKSPACE" \
+      - name: Build Xcode Project
+        run: |
+          # Bypassing variables by hardcoding the direct absolute path
+          xcodebuild -workspace ios/App/App.xcworkspace \
                      -scheme App \
                      -configuration Release \
                      -sdk iphoneos \
@@ -43,12 +40,12 @@ jobs:
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Search for the compiled .app file in the build folder
+          # Finding the compiled .app safely and packaging it
           APP_PATH=$(find ios/App -name "*.app" -type d | head -n 1)
           cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
-      - name: Upload IPA Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: AreaTool-IPA
