@@ -17,31 +17,34 @@ jobs:
           
       - name: Setup and Sync
         run: |
-          # 1. Prepare Environment
           sudo gem install cocoapods
           npm install
-          
-          # 2. Fresh iOS Build
           rm -rf ios
           npx cap add ios
           npx cap sync ios
           
-      - name: Install Pods and Build
+      - name: Build App
         run: |
-          # 3. Enter the correct directory
           cd ios/App
           pod install
           
-          # 4. Build using the CORRECT workspace name we found
-          xcodebuild -workspace "Capacitor.xcworkspace" -scheme App -configuration Release -sdk iphoneos build
+          # Dynamically find the workspace file
+          WORKSPACE=$(ls | grep .xcworkspace | head -n 1)
+          echo "Found workspace: $WORKSPACE"
+          
+          # Build with signing disabled to ensure compilation finishes
+          xcodebuild -workspace "$WORKSPACE" \
+                     -scheme App \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     CODE_SIGNING_ALLOWED=NO \
+                     build
           
       - name: Package IPA
         run: |
-          # 5. Package the app into an IPA
           mkdir -p Payload
-          
-          # Find the generated .app file dynamically so we don't miss it
-          APP_PATH=$(find ios/App/build -name "*.app" -type d | head -n 1)
+          # Search for the compiled .app file in the build folder
+          APP_PATH=$(find ios/App -name "*.app" -type d | head -n 1)
           cp -r "$APP_PATH" Payload/
           zip -q -r AreaTool.ipa Payload
 
